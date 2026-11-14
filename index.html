@@ -6,19 +6,19 @@
     <title>Dungeon</title>
     <style>
         #maze{
-            width: 900px;
-            height: 600px;
-            touch-action: none;
+            width: 100vw;
+            height: 100vh;
+            display:block;
         }
         #START{
-            position: absolute;
-            left: 200px;
-            top: 200px;
+            position:absolute;
+            left:50%;
+            top:50%;
+            transform:translate(-50%, -50%);
         }
     </style>
     <script>
         "use strict";
-
         let scroller = new Scroller();
         Player.prototype = scroller;
         Alien.prototype = scroller;
@@ -30,11 +30,17 @@
         const maze = [];
         const player = new Player(1, 1)
         const aliens = [new Alien(W - 2, 1), new Alien(1, W - 2)];
-
         let ctx;
         let keyCode = 0;
         let status = 0;
         let timer = NaN;
+        let canvas;
+        let tileSize;
+        let centerX;
+        let centerY;
+        let panelWidth;
+        let panelX;
+        let miniMapSize;
 
         window.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('audio').forEach(a => {
@@ -58,12 +64,14 @@
             }
 
             this.getScrollX = function(){
-                return this.x * 50 + this.dx * this.scrollCount * 10;
+                return this.x * tileSize +
+                    this.dx * this.scrollCount * (tileSize / 5);
             }
 
             this.getScrollY = function(){
-                return this.y * 50 + this.dy * this.scrollCount * 10;
-            }            
+                return this.y * tileSize +
+                    this.dy * this.scrollCount * (tileSize / 5);
+            }      
         }
 
         function Player(x, y){
@@ -173,10 +181,32 @@
             return Math.floor(Math.random() * v);
         }
 
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            centerX = canvas.width / 2;
+            centerY = canvas.height / 2;
+
+            tileSize = Math.min(canvas.width, canvas.height) / 12;
+
+            // 追加部分
+            panelWidth = canvas.width * 0.25;
+            panelX = canvas.width - panelWidth;
+
+            miniMapSize = panelWidth * 0.8;
+        }
+
         function init(){
-            let maze = document.getElementById("maze");
-            ctx = maze.getContext("2d");
-            ctx.font = "bold 48px sans-serif"
+            canvas = document.getElementById("maze");
+            ctx = canvas.getContext("2d");
+
+            resizeCanvas();
+
+            window.addEventListener("resize", () => {
+                resizeCanvas();
+                repaint();
+            });
 
             createMaze(W, H);
             repaint();
@@ -249,40 +279,78 @@
 
         function repaint(){
             ctx.fillStyle = "black";
-            ctx.fillRect(0, 0, 900, 600);
+            ctx.fillRect(
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
 
             ctx.save();
             ctx.beginPath();
-            ctx.arc(300, 300, 300, 0, Math.PI * 2);
+            ctx.arc(
+                centerX,
+                centerY,
+                Math.min(centerX, centerY),
+                0,
+                Math.PI * 2
+            );
             ctx.clip();
 
             ctx.fillStyle = "brown";
-            ctx.translate(6 * 50, 6 * 50);
+            ctx.translate(
+                centerX,
+                centerY
+            );
             ctx.translate(-1 * player.getScrollX(), -1 * player.getScrollY());
             for(let x=0; x<W; x++){
                 for(let y=0; y<H; y++){
                     if(maze[y][x] == 1){
-                        ctx.fillRect(x*50, y*50, 50, 50);
+                        ctx.fillRect(
+                            x * tileSize,
+                            y * tileSize,
+                            tileSize,
+                            tileSize
+                        );
                     }
                 }
             }
-            aliens.forEach((a) => a.paint(ctx, 50, 50));
+            aliens.forEach((a) => a.paint(ctx, tileSize, tileSize));
             ctx.restore();
 
             ctx.fillStyle = "#eeeeee";
-            ctx.fillRect(650, 0, 250, 600);
+            ctx.fillRect(
+                panelX,
+                0,
+                panelWidth,
+                canvas.height
+            );
 
             ctx.save();
-            ctx.translate(670, 300);
+            ctx.translate(
+                panelX + panelWidth * 0.1,
+                canvas.height * 0.5
+            );
             ctx.fillStyle = "brown";
             for(let x=0; x<W; x++){
                 for(let y=0; y<H; y++){
                     if(maze[y][x] == 1){
-                        ctx.fillRect(x*7, y*7, 7, 7);
+                        let miniCell = miniMapSize / W;
+                        ctx.fillRect(
+                            x * miniCell,
+                            y * miniCell,
+                            miniCell,
+                            miniCell
+                        );
                     }
                 }
             }
-            drawCircle(player.x*7+3, player.y*7+3, 3, "red");
+            drawCircle(
+                player.x * miniCell + miniCell / 2,
+                player.y * miniCell + miniCell / 2,
+                miniCell / 2,
+                "red"
+            );
             aliens.forEach((a) => {
                 drawCircle(a.x*7+3, a.y*7+3, 3, "purple");
             });
@@ -312,7 +380,13 @@
             }
             drawCircle(ax, ay, 30, "yellow");
 
-            player.paint(ctx, 300, 300, 50, 50);
+            player.paint(
+                ctx,
+                centerX - tileSize/2,
+                centerY - tileSize/2,
+                tileSize,
+                tileSize
+            );
             ctx.fillStyle = "yellow";
             if(status == GAMEOVER){
                 ctx.fillText("GAME OVER", 150, 200);
